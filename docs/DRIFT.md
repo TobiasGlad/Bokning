@@ -34,8 +34,15 @@ För den befintliga servern finns ett installationsskript som körs som root i
 serverns vanliga terminal, utanför agentens begränsade körmiljö:
 
 ```sh
-/root/bokning/.venv/bin/python /root/bokning/deploy/publish_ip.py 82.165.46.250
+bash /root/bokning/publicera.sh
 ```
+
+Shellskriptet använder `82.165.46.250` som standard. En annan adress kan anges
+som första argument. Det kontrollerar systemd-åtkomst, skapar Python-miljö om
+den saknas och installerar saknade Python-paket innan publiceringen. Vid fel
+visas aktuellt installationssteg och tjänstens status. Befintliga privata
+inställningar och databas måste finnas; skriptet ersätter eller återställer
+inte användarkonton. `bash /root/bokning/publicera.sh --check` gör en förkontroll.
 
 Skriptet lägger till `/bokning/` i Apache, installerar Boknings systemd-tjänst,
 kopierar enbart publika statiska filer till `/var/www/bokning-static` och
