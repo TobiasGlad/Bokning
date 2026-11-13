@@ -1,5 +1,5 @@
 // Never cache authenticated pages, API responses, images or bookings.
-const CACHE = 'bokning-shell-v2-outlook';
+const CACHE = 'bokning-shell-v3-single-menu';
 const SHELL = ['/bokning/offline/', '/bokning/static/bokning/app.css', '/bokning/static/bokning/app.js', '/bokning/static/bokning/icon-192.png', '/bokning/static/bokning/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil((async () => {

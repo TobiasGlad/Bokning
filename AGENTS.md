@@ -4,6 +4,14 @@ Projektets lokala katalog är `/root/bokning`. Vid publicering online ska
 applikationen ligga under `/bokning/`. Ta hänsyn till sökvägen för länkar,
 statiska resurser och eventuell routing.
 
+## Gränssnitt
+
+Behåll Outlook 365-inspirerad formgivning med endast en vertikal meny till
+vänster. Dubblera inte navigeringen med en ikonrad, toppmeny, mobilens
+nederkantmeny eller en separat panel med samma genvägar. På mobil öppnas
+samma vänstermeny med menyknappen. Kontextuella åtgärder som att boka en
+vald bil och öppna en boknings detaljer får finnas i innehållet.
+
 ## Automatisk GitHub-uppdatering
 
 Användaren har begärt samma leveransrutin som för Basen: uppdatera GitHub

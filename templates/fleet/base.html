@@ -7,8 +7,8 @@
   <title>{% block title %}Bokning · Bilpool{% endblock %}</title>
   <link rel="manifest" href="{% url 'manifest' %}"><link rel="icon" href="{% static 'bokning/icon.svg' %}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{% static 'bokning/icon-192.png' %}">
-  <link rel="stylesheet" href="{% static 'bokning/app.css' %}?v=outlook365-2">
-  <script src="{% static 'bokning/app.js' %}?v=outlook365-1" defer></script>
+  <link rel="stylesheet" href="{% static 'bokning/app.css' %}?v=single-menu-1">
+  <script src="{% static 'bokning/app.js' %}?v=single-menu-1" defer></script>
 </head>
 <body class="{% if user.is_authenticated %}signed-in{% endif %}">
 <a class="skip-link" href="#main-content">Hoppa till innehåll</a>
@@ -25,20 +25,14 @@
 </defs></svg>
 {% if user.is_authenticated %}
 <header class="suite-header">
-  <a class="suite-brand" href="{% url 'dashboard' %}"><span class="suite-app-icon">b</span><strong>Bokning</strong><span class="suite-label">Bilpool & resurser</span></a>
+  <button class="menu-toggle" data-menu aria-controls="folder-pane" aria-expanded="false" aria-label="Öppna menyn"><svg class="ui-icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+  <div class="suite-brand"><span class="suite-app-icon">b</span><strong>Bokning</strong><span class="suite-label">Bilpool & resurser</span></div>
   <form class="suite-search" action="{% url 'dashboard' %}" method="get" role="search"><svg class="ui-icon" aria-hidden="true"><use href="#i-search"/></svg><label class="sr-only" for="suite-search-input">Sök resurser</label><input id="suite-search-input" name="q" type="search" value="{{ request.GET.q }}" placeholder="Sök bil, registreringsnummer eller plats"><button class="sr-only" type="submit">Sök</button></form>
-  <div class="suite-header-actions"><a class="suite-settings" href="{% url 'profile' %}" aria-label="Mitt konto och inställningar"><svg class="ui-icon" aria-hidden="true"><use href="#i-settings"/></svg></a><a class="top-avatar" href="{% url 'profile' %}" aria-label="Mitt konto">{{ user.first_name|first|default:'M'|upper }}</a></div>
+
 </header>
-<nav class="app-rail" aria-label="Snabbnavigering">
-  <a href="{% url 'dashboard' %}" class="{% if page_name == 'dashboard' or page_name == 'resource' %}selected{% endif %}" title="Resurser" aria-label="Resurser"><svg class="ui-icon" aria-hidden="true"><use href="#i-grid"/></svg></a>
-  <a href="{% url 'calendar' %}" class="{% if page_name == 'calendar' %}selected{% endif %}" title="Kalender" aria-label="Kalender"><svg class="ui-icon" aria-hidden="true"><use href="#i-calendar"/></svg></a>
-  <a href="{% url 'bookings' %}" class="{% if page_name == 'bookings' or page_name == 'booking' %}selected{% endif %}" title="Mina bokningar" aria-label="Mina bokningar"><svg class="ui-icon" aria-hidden="true"><use href="#i-list"/></svg></a>
-  {% if user.is_staff %}<a href="{% url 'users' %}" title="Användare" aria-label="Användare"><svg class="ui-icon" aria-hidden="true"><use href="#i-people"/></svg></a>{% endif %}
-  <a class="rail-bottom" href="{% url 'profile' %}" title="Mitt konto" aria-label="Mitt konto"><svg class="ui-icon" aria-hidden="true"><use href="#i-user"/></svg></a>
-</nav>
-<div class="command-bar"><button class="menu-toggle" data-menu aria-controls="folder-pane" aria-expanded="true" aria-label="Visa eller dölj navigering"><svg class="ui-icon" aria-hidden="true"><use href="#i-menu"/></svg></button><a class="button primary small" href="{% url 'book' %}">＋ Ny bokning</a><span class="command-separator"></span><a class="command-link {% if page_name == 'dashboard' %}current{% endif %}" href="{% url 'dashboard' %}">Resurser</a><a class="command-link {% if page_name == 'calendar' %}current{% endif %}" href="{% url 'calendar' %}">Kalender</a><a class="command-link {% if page_name == 'bookings' %}current{% endif %}" href="{% url 'bookings' %}">Mina bokningar</a><span class="today">{% now 'j F Y' %}</span></div>
 <aside class="sidebar" id="folder-pane">
   <div class="workspace"><svg class="ui-icon" aria-hidden="true"><use href="#i-calendar"/></svg><div><strong>Bilpool & resurser</strong><small>{{ user.get_full_name|default:user.email }}</small></div></div>
+  <a class="button primary sidebar-book" href="{% url 'book' %}">＋ Ny bokning</a>
   <p class="nav-label">BOKNING</p>
   <nav aria-label="Huvudmeny">
     <a class="{% if page_name == 'dashboard' or page_name == 'resource' or page_name == 'resource_edit' or page_name == 'resource_create' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-grid"/></svg>Alla resurser</a>
@@ -54,5 +48,4 @@
 </aside>
 {% endif %}
 <main id="main-content" class="{% if user.is_authenticated %}main{% else %}auth-main{% endif %}"><div class="page-content">{% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</div></main>
-{% if user.is_authenticated %}<nav class="mobile-nav" aria-label="Mobilmeny"><a class="{% if page_name == 'dashboard' or page_name == 'resource' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Resurser</span></a><a class="{% if page_name == 'calendar' %}active{% endif %}" href="{% url 'calendar' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-calendar"/></svg><span>Kalender</span></a><a class="mobile-book" href="{% url 'book' %}"><span class="mobile-plus">＋</span><span>Boka</span></a><a class="{% if page_name == 'bookings' or page_name == 'booking' %}active{% endif %}" href="{% url 'bookings' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-list"/></svg><span>Mina</span></a><a class="{% if page_name == 'profile' %}active{% endif %}" href="{% url 'profile' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-user"/></svg><span>Konto</span></a></nav>{% endif %}
 </body></html>

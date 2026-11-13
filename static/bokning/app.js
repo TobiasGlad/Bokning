@@ -1,20 +1,24 @@
 (() => {
   'use strict';
   const menu = document.querySelector('[data-menu]');
-  menu?.addEventListener('click', () => {
-    const open = document.body.classList.toggle('menu-open');
-    menu.setAttribute('aria-expanded', String(window.matchMedia('(max-width: 760px)').matches ? open : !open));
-  });
+  const pane = document.getElementById('folder-pane');
   const mobileLayout = window.matchMedia('(max-width: 760px)');
-  if (menu) menu.setAttribute('aria-expanded', String(!mobileLayout.matches));
-  mobileLayout.addEventListener('change', () => {
-    document.body.classList.remove('menu-open');
-    menu?.setAttribute('aria-expanded', String(!mobileLayout.matches));
-  });
+  const setMenu = (open, returnFocus = false) => {
+    const expanded = mobileLayout.matches ? open : true;
+    document.body.classList.toggle('menu-open', mobileLayout.matches && open);
+    menu?.setAttribute('aria-expanded', String(expanded));
+    menu?.setAttribute('aria-label', expanded ? 'Stäng menyn' : 'Öppna menyn');
+    if (pane) pane.inert = !expanded;
+    if (returnFocus) menu?.focus();
+  };
+  menu?.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
+  mobileLayout.addEventListener('change', () => setMenu(false));
+  setMenu(false);
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && window.matchMedia('(max-width: 760px)').matches) {
-      document.body.classList.remove('menu-open'); menu?.setAttribute('aria-expanded', 'false');
-    }
+    if (event.key === 'Escape' && mobileLayout.matches && document.body.classList.contains('menu-open')) setMenu(false, true);
+  });
+  document.addEventListener('click', event => {
+    if (mobileLayout.matches && document.body.classList.contains('menu-open') && !pane?.contains(event.target) && !menu?.contains(event.target)) setMenu(false);
   });
   document.querySelectorAll('[data-password]').forEach(button => button.addEventListener('click', () => {
     const input = document.getElementById(button.dataset.password);
