@@ -35,7 +35,8 @@ class Resource(models.Model):
     gearbox = models.CharField('Växellåda', max_length=15, choices=[('auto', 'Automat'), ('manual', 'Manuell')], default='auto')
     range_km = models.PositiveIntegerField('Räckvidd (km)', null=True, blank=True)
     mileage = models.PositiveIntegerField('Mätarställning (km)', default=0)
-    buffer_minutes = models.PositiveSmallIntegerField('Marginal mellan bokningar (min)', default=15)
+    buffer_minutes = models.PositiveSmallIntegerField('Marginal mellan bokningar (min)', default=0,
+        help_text='0 tillåter att nästa bokning börjar direkt när den föregående slutar.')
     max_hours = models.PositiveSmallIntegerField('Max bokningstid (timmar)', default=72)
     advance_days = models.PositiveSmallIntegerField('Bokningshorisont (dagar)', default=90)
     active = models.BooleanField('Bokningsbar', default=True)

@@ -7,3 +7,5 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;scroll-behavior:auto!important}}
 
 .skip-link{position:fixed;top:-60px;left:12px;background:#fff;color:#005a9e;border:2px solid #0078d4;padding:8px 14px;z-index:100}.skip-link:focus{top:8px}.mobile-nav>a.active{color:#0078d4;font-weight:600}
+
+.calendar-add{display:block;padding:8px 5px;border:1px dashed #c7e0f4;border-radius:3px;color:#0067b8;font-size:11px;text-align:center;margin-top:9px}.calendar-add:hover{background:#eff6fc;border-color:#0078d4}.calendar-add:focus-visible{outline:2px solid #0078d4;outline-offset:2px}

@@ -42,6 +42,21 @@ class BookingRules(TestCase):
         self.book(start=self.end+timedelta(minutes=15), end=self.end+timedelta(hours=2))
         self.assertEqual(Booking.objects.count(),2)
 
+    def test_default_resource_accepts_adjacent_and_separate_bookings_same_day(self):
+        resource = Resource.objects.create(name='Flera resor samma dag')
+        self.assertEqual(resource.buffer_minutes, 0)
+        morning = timezone.localtime(self.start).replace(hour=9, minute=0, second=0, microsecond=0)
+        for hour in [9, 10, 13]:
+            start = morning.replace(hour=hour)
+            self.book(resource=resource, start=start, end=start + timedelta(hours=1))
+        self.assertEqual(resource.bookings.count(), 3)
+        for start, end in [(morning, morning + timedelta(hours=1)),
+                           (morning + timedelta(minutes=30), morning + timedelta(hours=1, minutes=30)),
+                           (morning - timedelta(minutes=30), morning + timedelta(hours=3))]:
+            with self.assertRaises(ValidationError):
+                self.book(resource=resource, start=start, end=end)
+        self.assertEqual(resource.bookings.count(), 3)
+
     def test_cancel_frees_slot_and_enforces_owner(self):
         item = self.book()
         with self.assertRaises(ValidationError):
@@ -197,7 +212,19 @@ class ViewsAndSecurity(TestCase):
         response=self.client.post(reverse('resource_edit',args=[self.resource.pk]), data)
         self.assertContains(response,'Kalenderkoppling och marginal')
         self.resource.refresh_from_db()
-        self.assertEqual(self.resource.buffer_minutes,15)
+        self.assertEqual(self.resource.buffer_minutes,0)
+
+    def test_calendar_offers_another_time_and_adjacent_booking_can_be_submitted(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('calendar'), {'date': timezone.localdate(self.item.start).isoformat()})
+        self.assertContains(response, 'Boka en annan tid')
+        start = timezone.localtime(self.item.end).replace(second=0, microsecond=0) + timedelta(minutes=1)
+        # The business-rule test also covers exact equal end/start boundaries.
+        data = {'resource': self.resource.pk, 'start': start.strftime('%Y-%m-%dT%H:%M'),
+                'end': (start + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'), 'purpose': 'Andra resan'}
+        response = self.client.post(reverse('book'), data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.resource.bookings.count(), 2)
 
     def test_sso_state_required(self):
         response=self.client.get('/bokning/oauth/google/callback/?state=forged&code=bad')

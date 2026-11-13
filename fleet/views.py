@@ -197,7 +197,7 @@ def book(request):
         except ValidationError as exc:
             form.add_error(None, exc)
     return render(request, 'fleet/form.html', {'form': form, 'title': 'Boka en resurs', 'eyebrow': 'EN RESA I TAGET',
-        'intro': 'Välj bil och tid. Bokningen bekräftas direkt när bilen och kalendern är lediga.', 'submit': 'Bekräfta bokning'})
+        'intro': 'Samma resurs kan bokas flera gånger per dag. Välj ett ledigt tidsintervall; redan bokade tider visas i kalendern.', 'submit': 'Bekräfta bokning'})
 
 
 @login_required

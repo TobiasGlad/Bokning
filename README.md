@@ -19,6 +19,10 @@ driftsättning av applikationen online.
   drivmedel, platser, växellåda, räckvidd, mätarställning och nyckelinstruktioner.
 - Direktbokning, tidsfilter, bokningshistorik, veckokalender, avbokning,
   återlämning, felanmälan, serviceblockeringar och CSV-rapport för administratörer.
+- Samma resurs kan bokas flera gånger samma dag med skilda tidsintervall.
+  Standardmarginalen är 0 minuter, så 09–10 och 10–11 är tillåtna medan
+  överlappande tider stoppas. Kalendern erbjuder även ny bokning på dagar
+  som redan har bokningar. Administratören kan vid behov ange en extra marginal.
 - Skydd mot lokala dubbelbokningar, marginaler mellan bokningar, maximal
   bokningstid och bokningshorisont. Alla tider hanteras med Europe/Stockholm och UTC.
 - Administratörer skapar användare och kan stänga av konton eller byta lösenord.
