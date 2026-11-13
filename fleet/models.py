@@ -2,7 +2,7 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q, F
+from django.db.models import Q, F, Count
 from django.utils import timezone
 
 
@@ -21,9 +21,13 @@ class CalendarConnection(models.Model):
 
 
 class Resource(models.Model):
+    BOOKING_COLORS = [('blue', 'Blå'), ('purple', 'Lila'), ('teal', 'Turkos'), ('orange', 'Orange'),
+                      ('rose', 'Rosa'), ('green', 'Grön'), ('cyan', 'Ljusblå'), ('slate', 'Skifferblå')]
     KINDS = [('car', 'Bil'), ('van', 'Minibuss'), ('equipment', 'Utrustning'), ('other', 'Annan resurs')]
     FUELS = [('electric', 'El'), ('hybrid', 'Hybrid'), ('petrol', 'Bensin'), ('diesel', 'Diesel'), ('other', 'Annat')]
     name = models.CharField('Namn', max_length=120)
+    booking_color = models.CharField('Bokningsfärg', max_length=12, choices=BOOKING_COLORS, blank=True, default='',
+        help_text='Lämna tomt för automatisk färg. Färgen används för bilens bokningar i kalendern och listorna.')
     kind = models.CharField('Resurstyp', max_length=20, choices=KINDS, default='car')
     registration = models.CharField('Registreringsnummer', max_length=20, blank=True)
     description = models.TextField('Beskrivning', blank=True)
@@ -63,6 +67,20 @@ class Resource(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def color_class(self):
+        allowed = [key for key, label in self.BOOKING_COLORS]
+        color = self.booking_color if self.booking_color in allowed else allowed[((self.pk or 1) - 1) % len(allowed)]
+        return 'resource-color-' + color
+
+    def save(self, *args, **kwargs):
+        if not self.booking_color:
+            counts = dict(type(self).objects.values('booking_color').annotate(total=Count('pk')).values_list('booking_color', 'total'))
+            self.booking_color = min((key for key, label in self.BOOKING_COLORS), key=lambda key: counts.get(key, 0))
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = set(kwargs['update_fields']) | {'booking_color'}
+        super().save(*args, **kwargs)
 
 
 class Unit(models.Model):

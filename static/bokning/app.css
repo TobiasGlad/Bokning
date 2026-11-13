@@ -13,3 +13,23 @@
 /* One navigation pane on every screen size. */
 .menu-toggle{display:none}.sidebar-book{width:100%;margin:0 0 8px}.bottom-panels{grid-template-columns:1fr}
 @media(max-width:760px){.suite-header{gap:10px}.menu-toggle{display:grid;color:#fff;flex-shrink:0}.menu-toggle:hover{background:#ffffff20}.sidebar{padding-bottom:calc(20px + env(safe-area-inset-bottom));max-width:calc(100vw - 40px)}.menu-open .sidebar{transform:translateX(0)}.sidebar-book{min-height:40px}.suite-search{min-width:0}.suite-brand{flex-shrink:0}}
+
+/* Stable resource colours; status remains readable as text and border style. */
+.resource-color-blue{--resource-color:#0078d4;--resource-soft:#deecf9;--resource-ink:#005a9e}
+.resource-color-purple{--resource-color:#8764b8;--resource-soft:#efe5f7;--resource-ink:#5c2d91}
+.resource-color-teal{--resource-color:#038387;--resource-soft:#dff2f1;--resource-ink:#005b60}
+.resource-color-orange{--resource-color:#ca5010;--resource-soft:#fff0df;--resource-ink:#8a4300}
+.resource-color-rose{--resource-color:#c23970;--resource-soft:#fce8f0;--resource-ink:#8e244d}
+.resource-color-green{--resource-color:#498205;--resource-soft:#e9f3db;--resource-ink:#365e06}
+.resource-color-cyan{--resource-color:#0082a2;--resource-soft:#dff4fa;--resource-ink:#005e77}
+.resource-color-slate{--resource-color:#60758b;--resource-soft:#eaf0f5;--resource-ink:#384e63}
+.resource-color-dot{display:inline-block;width:9px;height:9px;margin-right:8px;border-radius:50%;background:var(--resource-color,#0078d4);flex-shrink:0;vertical-align:middle}
+.calendar-event[class*="resource-color-"]{background:var(--resource-soft);color:var(--resource-ink);border-left-color:var(--resource-color)}
+.calendar-event.syncing,.calendar-event.cancel_pending{border-left-style:dashed}
+.calendar-status{font-weight:600;font-size:10px}
+.resource-legend{display:flex;flex-wrap:wrap;gap:10px 20px;margin-top:17px}
+.resource-legend-item{display:inline-flex;align-items:center;font-size:12px;color:#424242}
+.booking-row[class*="resource-color-"],.upcoming-row[class*="resource-color-"]{border-left:3px solid var(--resource-color);padding-left:12px}
+.booking-row .date-tile,.upcoming-row .date-tile{border-color:var(--resource-color,#c7e0f4);color:var(--resource-ink,#005a9e);background:var(--resource-soft,#eff6fc)}
+.vehicle-title h3 .resource-color-dot{width:8px;height:8px;margin-right:7px}
+.page-heading h1 .resource-color-dot{width:12px;height:12px;margin-right:10px}

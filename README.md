@@ -17,6 +17,10 @@ driftsättning av applikationen online.
 
 - Bilar, minibussar och egna resurser med privata bilder, registreringsnummer,
   drivmedel, platser, växellåda, räckvidd, mätarställning och nyckelinstruktioner.
+- Varje resurs får automatiskt en bokningsfärg som återkommer i kalendern,
+  bokningslistorna och resursöversikten. Administratören kan ändra Bokningsfärg
+  på resursen. Kalenderns färgförklaring visar vilken färg som hör till varje bil;
+  väntande bokningar har även statustext och streckad kant, medan service är grå.
 - Direktbokning, tidsfilter, bokningshistorik, veckokalender, avbokning,
   återlämning, felanmälan, serviceblockeringar och CSV-rapport för administratörer.
 - Samma resurs kan bokas flera gånger samma dag med skilda tidsintervall.

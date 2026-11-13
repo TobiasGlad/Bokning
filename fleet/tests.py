@@ -399,3 +399,41 @@ class UnitSelection(TestCase):
         form_data = self.data('')
         from .forms import BookingForm
         self.assertTrue(BookingForm(form_data).is_valid())
+
+
+@override_settings(SESSION_COOKIE_SECURE=False, CSRF_COOKIE_SECURE=False, SECURE_SSL_REDIRECT=False)
+class ResourceColors(TestCase):
+    def test_automatic_colors_spread_across_palette_and_stay_stable(self):
+        first = Resource.objects.create(name='Bil A')
+        second = Resource.objects.create(name='Bil B')
+        self.assertNotEqual(first.booking_color, second.booking_color)
+        color = first.booking_color
+        first.name = 'Bil A uppdaterad'
+        first.save()
+        first.refresh_from_db()
+        self.assertEqual(first.booking_color, color)
+        self.assertEqual(first.color_class, 'resource-color-' + color)
+
+    def test_admin_can_choose_color_and_arbitrary_color_is_rejected(self):
+        from .forms import ResourceForm
+        data = {'name':'Bil','booking_color':'rose','kind':'car','seats':5,'fuel':'electric','gearbox':'auto',
+                'mileage':0,'buffer_minutes':0,'max_hours':72,'advance_days':90,'active':'on'}
+        form = ResourceForm(data)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.save().booking_color, 'rose')
+        data['booking_color'] = 'untrusted-css'
+        form = ResourceForm(data)
+        self.assertFalse(form.is_valid())
+        self.assertIn('booking_color', form.errors)
+
+    def test_calendar_and_booking_list_use_the_same_resource_color(self):
+        user = get_user_model().objects.create_user('color-test@example.invalid')
+        resource = Resource.objects.create(name='Lila testbil', booking_color='purple')
+        start = timezone.now() + timedelta(days=1)
+        booking = create_booking(resource, user, start, start + timedelta(hours=1), 'Testresa')
+        self.client.force_login(user)
+        response = self.client.get(reverse('calendar'), {'date': timezone.localdate(start).isoformat()})
+        self.assertContains(response, 'calendar-event confirmed resource-color-purple')
+        self.assertContains(response, 'resource-legend-item resource-color-purple')
+        self.assertContains(self.client.get(reverse('bookings')), 'booking-row resource-color-purple')
+        self.assertContains(self.client.get(reverse('booking', args=[booking.pk])), 'page-heading resource-color-purple')
