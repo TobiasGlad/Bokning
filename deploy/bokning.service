@@ -1,0 +1,19 @@
+[Unit]
+Description=Bokning bilpool
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/bokning
+Environment=DJANGO_SETTINGS_MODULE=config.settings
+ExecStart=/root/bokning/.venv/bin/python -m gunicorn config.wsgi:application -c deploy/gunicorn.conf.py
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/root/bokning/private /root/bokning/.secrets
+
+[Install]
+WantedBy=multi-user.target

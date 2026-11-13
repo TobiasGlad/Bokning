@@ -1,0 +1,41 @@
+from django.contrib import admin
+from django.urls import path
+from django.shortcuts import redirect
+from fleet import views as v, oauth
+
+urlpatterns = [
+    path('', lambda r: redirect('dashboard')),
+    path('bokning/', v.dashboard, name='dashboard'),
+    path('bokning/login/', v.sign_in, name='login'),
+    path('bokning/logout/', v.sign_out, name='logout'),
+    path('bokning/oauth/<str:provider>/start/', oauth.start, name='oauth_start'),
+    path('bokning/oauth/<str:provider>/callback/', oauth.callback, name='oauth_callback'),
+    path('bokning/resurser/ny/', v.resource_edit, name='resource_create'),
+    path('bokning/resurser/<int:pk>/', v.resource_detail, name='resource'),
+    path('bokning/resurser/<int:pk>/redigera/', v.resource_edit, name='resource_edit'),
+    path('bokning/resurser/<int:pk>/bild/', v.resource_photo, name='resource_photo'),
+    path('bokning/resurser/<int:pk>/fel/', v.issue_create, name='issue_create'),
+    path('bokning/boka/', v.book, name='book'),
+    path('bokning/bokningar/', v.bookings, name='bookings'),
+    path('bokning/bokningar/<uuid:pk>/', v.booking_detail, name='booking'),
+    path('bokning/bokningar/<uuid:pk>/kalender.ics', v.booking_ics, name='booking_ics'),
+    path('bokning/bokningar/<uuid:pk>/<str:action>/', v.booking_action, name='booking_action'),
+    path('bokning/kalender/', v.calendar_view, name='calendar'),
+    path('bokning/hantera/', v.manage, name='manage'),
+    path('bokning/hantera/service/ny/', v.maintenance_create, name='maintenance_create'),
+    path('bokning/hantera/service/<int:pk>/ta-bort/', v.maintenance_delete, name='maintenance_delete'),
+    path('bokning/hantera/fel/<int:pk>/atgardad/', v.issue_resolve, name='issue_resolve'),
+    path('bokning/anvandare/', v.users, name='users'),
+    path('bokning/anvandare/ny/', v.user_create, name='user_create'),
+    path('bokning/anvandare/<int:pk>/status/', v.user_toggle, name='user_toggle'),
+    path('bokning/anvandare/<int:pk>/losenord/', v.user_password, name='user_password'),
+    path('bokning/konto/', v.profile, name='profile'),
+    path('bokning/integrationer/', v.integrations, name='integrations'),
+    path('bokning/integrationer/<int:pk>/kalendrar/', v.discover, name='discover'),
+    path('bokning/integrationer/<int:pk>/importera/', v.import_resource, name='import_resource'),
+    path('bokning/integrationer/<int:pk>/status/', v.connection_toggle, name='connection_toggle'),
+    path('bokning/rapporter/bokningar.csv', v.export, name='export'),
+    path('bokning/manifest.webmanifest', v.manifest, name='manifest'),
+    path('bokning/sw.js', v.service_worker, name='service_worker'),
+    path('bokning/offline/', v.offline, name='offline'),
+]

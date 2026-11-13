@@ -21,3 +21,9 @@ __pycache__/
 dist/
 build/
 .DS_Store
+private/
+staticfiles/
+.pytest_cache/
+*.tar.gz
+*.zip
+*.pid
