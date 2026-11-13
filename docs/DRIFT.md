@@ -28,6 +28,29 @@ inte en plattform där oberoende organisationer delar samma databas.
 
 ## Server
 
+### Testinstallation via serverns IP-adress
+
+För den befintliga servern finns ett installationsskript som körs som root i
+serverns vanliga terminal, utanför agentens begränsade körmiljö:
+
+```sh
+/root/bokning/.venv/bin/python /root/bokning/deploy/publish_ip.py 82.165.46.250
+```
+
+Skriptet lägger till `/bokning/` i Apache, installerar Boknings systemd-tjänst,
+kopierar enbart publika statiska filer till `/var/www/bokning-static` och
+verifierar inloggningssidan och CSS genom Apache. Befintliga projekt och
+konton bevaras. Inställningar och databas säkerhetskopieras privat innan
+ändringarna görs. Vid fel återställs tidigare inställningar och routning.
+`--check` kontrollerar förutsättningarna utan att installera något.
+
+Adressen blir `http://82.165.46.250/bokning/`. HTTP-installationen är en
+testinstallation; trafiken är okrypterad. Installation som telefonapp och
+extern OAuth-inloggning behöver HTTPS. Skriptet aktiverar därför inte dessa
+funktioner eller gör anspråk på att HTTPS är klart.
+
+### Drift med HTTPS
+
 ```sh
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py collectstatic --noinput
