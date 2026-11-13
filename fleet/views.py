@@ -516,8 +516,8 @@ def export(request):
 
 def manifest(request):
     return JsonResponse({'id': '/bokning/', 'name': 'Bokning · Bilpool', 'short_name': 'Bokning', 'lang': 'sv',
-        'start_url': '/bokning/', 'scope': '/bokning/', 'display': 'standalone', 'background_color': '#f5f6f2',
-        'theme_color': '#164c3c', 'description': 'Boka bilar och gemensamma resurser.',
+        'start_url': '/bokning/', 'scope': '/bokning/', 'display': 'standalone', 'background_color': '#f3f2f1',
+        'theme_color': '#0078d4', 'description': 'Boka bilar och gemensamma resurser.',
         'icons': [{'src': f'/bokning/static/bokning/icon-{size}.png', 'sizes': f'{size}x{size}', 'type': 'image/png', 'purpose': 'any maskable'} for size in [192, 512]]},
         content_type='application/manifest+json')
 

@@ -3,7 +3,18 @@
   const menu = document.querySelector('[data-menu]');
   menu?.addEventListener('click', () => {
     const open = document.body.classList.toggle('menu-open');
-    menu.setAttribute('aria-expanded', String(open));
+    menu.setAttribute('aria-expanded', String(window.matchMedia('(max-width: 760px)').matches ? open : !open));
+  });
+  const mobileLayout = window.matchMedia('(max-width: 760px)');
+  if (menu) menu.setAttribute('aria-expanded', String(!mobileLayout.matches));
+  mobileLayout.addEventListener('change', () => {
+    document.body.classList.remove('menu-open');
+    menu?.setAttribute('aria-expanded', String(!mobileLayout.matches));
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && window.matchMedia('(max-width: 760px)').matches) {
+      document.body.classList.remove('menu-open'); menu?.setAttribute('aria-expanded', 'false');
+    }
   });
   document.querySelectorAll('[data-password]').forEach(button => button.addEventListener('click', () => {
     const input = document.getElementById(button.dataset.password);
