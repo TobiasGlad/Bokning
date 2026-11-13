@@ -22,6 +22,11 @@ driftsättning av applikationen online.
 - Skydd mot lokala dubbelbokningar, marginaler mellan bokningar, maximal
   bokningstid och bokningshorisont. Alla tider hanteras med Europe/Stockholm och UTC.
 - Administratörer skapar användare och kan stänga av konton eller byta lösenord.
+- Enhet väljs från en förvalslista vid bokning och visas i bokningsdetaljer,
+  bokningslistor och CSV-rapporten. Administratören hanterar listan under
+  Resurser & drift → Enheter. Enheter kan döljas för nya bokningar utan att
+  äldre bokningar förlorar sin koppling. Valet är frivilligt och befintliga
+  bokningar fungerar utan enhet. Inga organisationsspecifika enheter ingår i källkoden.
 - Microsoft- och Google-inloggning med OpenID Connect via Authlib, state, nonce
   och PKCE. Befintliga konton länkas explicit efter inloggning, aldrig enbart via e-post.
 - Separat OAuth-samtycke för kalenderkopplingar. Hämta och importera kalendrar,

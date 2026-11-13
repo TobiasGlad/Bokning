@@ -64,6 +64,19 @@ class Resource(models.Model):
         return self.name
 
 
+class Unit(models.Model):
+    name = models.CharField('Enhet', max_length=120, unique=True)
+    active = models.BooleanField('Valbar vid bokning', default=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'enhet'
+        verbose_name_plural = 'enheter'
+
+    def __str__(self):
+        return self.name
+
+
 class Booking(models.Model):
     STATES = [('confirmed', 'Bekräftad'), ('syncing', 'Väntar på kalender'), ('cancel_pending', 'Avbokning väntar'),
               ('cancelled', 'Avbokad'), ('returned', 'Återlämnad'), ('rejected', 'Kalenderkonflikt')]
@@ -71,6 +84,7 @@ class Booking(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     resource = models.ForeignKey(Resource, on_delete=models.PROTECT, related_name='bookings')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='bookings')
+    unit = models.ForeignKey(Unit, verbose_name='Enhet', on_delete=models.PROTECT, null=True, blank=True, related_name='bookings')
     start = models.DateTimeField('Från')
     end = models.DateTimeField('Till')
     purpose = models.CharField('Ändamål / destination', max_length=240)

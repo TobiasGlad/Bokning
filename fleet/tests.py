@@ -120,7 +120,7 @@ class BookingRules(TestCase):
         self.assertEqual(item.status,'cancelled')
 
 
-@override_settings(SESSION_COOKIE_SECURE=False, CSRF_COOKIE_SECURE=False)
+@override_settings(SESSION_COOKIE_SECURE=False, CSRF_COOKIE_SECURE=False, SECURE_SSL_REDIRECT=False)
 class ViewsAndSecurity(TestCase):
     def setUp(self):
         self.admin=get_user_model().objects.create_superuser('admin@example.invalid','admin@example.invalid','Test-admin-4839')
@@ -303,3 +303,72 @@ class ConcurrentBooking(TransactionTestCase):
             results=list(pool.map(lambda _:attempt(),range(2)))
         self.assertCountEqual(results,['confirmed','conflict'])
         self.assertEqual(Booking.objects.count(),1)
+
+
+@override_settings(SESSION_COOKIE_SECURE=False, CSRF_COOKIE_SECURE=False, SECURE_SSL_REDIRECT=False)
+class UnitSelection(TestCase):
+    def setUp(self):
+        from .models import Unit
+        self.unit = Unit.objects.create(name='Testenhet')
+        self.inactive = Unit.objects.create(name='Avslutad enhet', active=False)
+        self.user = get_user_model().objects.create_user('unit-user@example.invalid')
+        self.admin = get_user_model().objects.create_superuser('unit-admin@example.invalid', 'unit-admin@example.invalid', 'Admin-test-9483')
+        self.resource = Resource.objects.create(name='Enhetstestbil')
+        self.start = timezone.now() + timedelta(days=1)
+        self.end = self.start + timedelta(hours=1)
+
+    def data(self, unit):
+        return {'resource': self.resource.pk, 'unit': unit,
+            'start': timezone.localtime(self.start).strftime('%Y-%m-%dT%H:%M'),
+            'end': timezone.localtime(self.end).strftime('%Y-%m-%dT%H:%M'), 'purpose': 'Enhetstest'}
+
+    def test_booking_saves_selected_unit_and_shows_details(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('book'), self.data(self.unit.pk))
+        self.assertEqual(response.status_code, 302)
+        booking = Booking.objects.get()
+        self.assertEqual(booking.unit_id, self.unit.pk)
+        self.assertContains(self.client.get(reverse('booking', args=[booking.pk])), 'Testenhet')
+        self.assertContains(self.client.get(reverse('bookings')), 'Testenhet')
+
+    def test_inactive_and_forged_unit_cannot_be_selected(self):
+        from .forms import BookingForm
+        self.assertNotIn(self.inactive, BookingForm().fields['unit'].queryset)
+        for value in [self.inactive.pk, 999999]:
+            form = BookingForm(self.data(value))
+            self.assertFalse(form.is_valid())
+            self.assertIn('unit', form.errors)
+        with self.assertRaises(ValidationError):
+            create_booking(self.resource, self.user, self.start, self.end, 'Test', unit=self.inactive)
+        self.assertFalse(Booking.objects.exists())
+
+    def test_deactivation_keeps_existing_bookings(self):
+        from django.db.models.deletion import ProtectedError
+        booking = create_booking(self.resource, self.user, self.start, self.end, 'Test', unit=self.unit)
+        self.unit.active = False
+        self.unit.save()
+        booking.refresh_from_db()
+        self.assertEqual(booking.unit.name, 'Testenhet')
+        with self.assertRaises(ProtectedError):
+            self.unit.delete()
+
+    def test_units_are_managed_only_by_administrators(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse('units')).status_code, 403)
+        self.assertEqual(self.client.post(reverse('unit_create'), {'name': 'Ny enhet', 'active': 'on'}).status_code, 403)
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(reverse('units')).status_code, 200)
+        response = self.client.post(reverse('unit_create'), {'name': 'Ny enhet', 'active': 'on'})
+        self.assertRedirects(response, reverse('units'))
+        response = self.client.post(reverse('unit_edit', args=[self.unit.pk]), {'name': self.unit.name})
+        self.assertRedirects(response, reverse('units'))
+        self.unit.refresh_from_db()
+        self.assertFalse(self.unit.active)
+
+    def test_csv_includes_unit_and_booking_without_unit_is_supported(self):
+        create_booking(self.resource, self.user, self.start, self.end, 'Test', unit=self.unit)
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('export')), 'Testenhet')
+        form_data = self.data('')
+        from .forms import BookingForm
+        self.assertTrue(BookingForm(form_data).is_valid())

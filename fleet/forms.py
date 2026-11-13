@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from .models import Resource, Booking, Issue, Maintenance
+from .models import Resource, Booking, Issue, Maintenance, Unit
 
 
 class ResourceForm(forms.ModelForm):
@@ -37,10 +37,18 @@ class ResourceForm(forms.ModelForm):
 
 class BookingForm(forms.Form):
     resource = forms.ModelChoiceField(label='Resurs', queryset=Resource.objects.filter(active=True))
+    unit = forms.ModelChoiceField(label='Enhet', queryset=Unit.objects.filter(active=True), required=False,
+                                  empty_label='Välj enhet (valfritt)')
     start = forms.DateTimeField(label='Från', input_formats=['%Y-%m-%dT%H:%M'], widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}))
     end = forms.DateTimeField(label='Till', input_formats=['%Y-%m-%dT%H:%M'], widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}))
     purpose = forms.CharField(label='Ändamål / destination', max_length=240)
     notes = forms.CharField(label='Anteckning', required=False, widget=forms.Textarea(attrs={'rows': 2}))
+
+
+class UnitForm(forms.ModelForm):
+    class Meta:
+        model = Unit
+        fields = ['name', 'active']
 
 
 class UserForm(UserCreationForm):

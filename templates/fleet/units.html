@@ -1,0 +1,4 @@
+{% extends 'fleet/base.html' %}{% block content %}
+<section class="page-heading"><div><p class="eyebrow">ADMINISTRATION</p><h1>Enheter</h1><p class="muted">Hantera förvalslistan som användarna väljer från vid bokning.</p></div><a class="button primary" href="{% url 'unit_create' %}">＋ Lägg till enhet</a></section>
+<div class="panel">{% for item in units %}<div class="list-row"><div><strong>{{ item.name }}</strong><small>{% if item.active %}Valbar vid bokning{% else %}Dold för nya bokningar{% endif %}</small></div><a class="button outline small" href="{% url 'unit_edit' item.pk %}">Redigera ↗</a></div>{% empty %}<div class="empty-state"><h2>Skapa er förvalslista</h2><p>Lägg till organisationens enheter. Användarna kan sedan välja enhet när de bokar en bil.</p><a class="button primary" href="{% url 'unit_create' %}">＋ Lägg till första enheten</a></div>{% endfor %}</div>
+{% endblock %}

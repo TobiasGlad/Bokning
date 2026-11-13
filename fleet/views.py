@@ -19,8 +19,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
-from .models import Resource, Booking, Maintenance, Issue, CalendarConnection, Audit, LoginAttempt
-from .forms import ResourceForm, BookingForm, UserForm, IssueForm, MaintenanceForm, ReturnForm
+from .models import Resource, Booking, Maintenance, Issue, CalendarConnection, Audit, LoginAttempt, Unit
+from .forms import ResourceForm, BookingForm, UserForm, IssueForm, MaintenanceForm, ReturnForm, UnitForm
 from .services import create_booking, cancel_booking, return_booking, create_maintenance, sync_booking
 from .calendars import CalendarClient, CalendarError
 
@@ -202,7 +202,7 @@ def book(request):
 
 @login_required
 def bookings(request):
-    items = Booking.objects.select_related('resource', 'user')
+    items = Booking.objects.select_related('resource', 'user', 'unit')
     team = request.GET.get('view') == 'team' and request.user.is_staff
     if not team:
         items = items.filter(user=request.user)
@@ -216,7 +216,7 @@ def bookings(request):
 
 
 def own_booking(request, pk):
-    booking = get_object_or_404(Booking.objects.select_related('resource', 'user'), pk=pk)
+    booking = get_object_or_404(Booking.objects.select_related('resource', 'user', 'unit'), pk=pk)
     if booking.user_id != request.user.pk and not request.user.is_staff:
         raise Http404
     return booking
@@ -344,6 +344,25 @@ def maintenance_delete(request, pk):
 @staff_required
 def users(request):
     return render(request, 'fleet/users.html', {'users': get_user_model().objects.order_by('first_name', 'email')})
+
+
+@staff_required
+def units(request):
+    return render(request, 'fleet/units.html', {'units': Unit.objects.all()})
+
+
+@staff_required
+def unit_edit(request, pk=None):
+    item = get_object_or_404(Unit, pk=pk) if pk else None
+    form = UnitForm(request.POST or None, instance=item)
+    if request.method == 'POST' and form.is_valid():
+        item = form.save()
+        Audit.objects.create(actor=request.user, action='unit.saved', description=f'Enhet {item.pk} sparad')
+        messages.success(request, 'Enheten är sparad.')
+        return redirect('units')
+    return render(request, 'fleet/form.html', {'form': form, 'title': 'Redigera enhet' if pk else 'Lägg till enhet',
+        'eyebrow': 'FÖRVALSLISTA', 'submit': 'Spara enhet', 'back_url': reverse('units'),
+        'intro': 'Avmarkera Valbar vid bokning för att dölja enheten från nya bokningar. Äldre bokningar behåller sin koppling.'})
 
 
 @staff_required
@@ -483,12 +502,12 @@ def export(request):
     response['Content-Disposition'] = 'attachment; filename="bokningar.csv"'
     response.write('\ufeff')
     writer = csv.writer(response, delimiter=';')
-    writer.writerow(['Resurs', 'Regnr', 'Användare', 'Från', 'Till', 'Status', 'Ändamål', 'Återlämnad km'])
+    writer.writerow(['Resurs', 'Regnr', 'Användare', 'Enhet', 'Från', 'Till', 'Status', 'Ändamål', 'Återlämnad km'])
     def safe(value):
         text = str(value if value is not None else '')
         return "'" + text if text.lstrip().startswith(('=', '+', '-', '@', '\t')) else text
-    for booking in Booking.objects.select_related('resource', 'user').iterator():
-        writer.writerow([safe(x) for x in [booking.resource.name, booking.resource.registration, booking.user.email,
+    for booking in Booking.objects.select_related('resource', 'user', 'unit').iterator():
+        writer.writerow([safe(x) for x in [booking.resource.name, booking.resource.registration, booking.user.email, booking.unit.name if booking.unit else '',
             timezone.localtime(booking.start).isoformat(), timezone.localtime(booking.end).isoformat(),
             booking.get_status_display(), booking.purpose, booking.return_mileage]])
     Audit.objects.create(actor=request.user, action='report.export', description='Bokningsrapport exporterad')

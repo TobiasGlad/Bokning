@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
-from .models import Booking, Resource, Maintenance, Audit
+from .models import Booking, Resource, Maintenance, Audit, Unit
 from .calendars import CalendarClient, CalendarError, CalendarConflict
 
 
@@ -29,14 +29,18 @@ def validate_slot(resource, start, end, exclude=None):
         raise ValidationError('Resursen är blockerad för service under den valda tiden.')
 
 
-def create_booking(resource, user, start, end, purpose, notes=''):
+def create_booking(resource, user, start, end, purpose, notes='', unit=None):
     # IMMEDIATE SQLite transactions serialize writers, including the first booking.
     with transaction.atomic():
         Resource.objects.filter(pk=resource.pk).update(lock_version=F('lock_version') + 1)
         resource = Resource.objects.select_for_update().get(pk=resource.pk)
+        if unit is not None:
+            unit = Unit.objects.select_for_update().filter(pk=unit.pk, active=True).first()
+            if unit is None:
+                raise ValidationError('Enheten är inte längre valbar. Välj en annan enhet.')
         validate_slot(resource, start, end)
         booking = Booking.objects.create(resource=resource, user=user, start=start, end=end,
-                    purpose=purpose, notes=notes, status='syncing' if resource.connection_id else 'confirmed')
+                    purpose=purpose, notes=notes, unit=unit, status='syncing' if resource.connection_id else 'confirmed')
         Audit.objects.create(actor=user, action='booking.created', description=f'Bokning {booking.pk} skapad')
     if resource.connection_id:
         sync_booking(booking.pk)
