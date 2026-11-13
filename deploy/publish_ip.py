@@ -38,7 +38,8 @@ Alias /bokning/static/ /var/www/bokning-static/
     Options -Indexes
 </Directory>
 ProxyPass /bokning/static/ !
-ProxyPassMatch "^/bokning$" "http://127.0.0.1:8010/bokning/"
+# Explicit backreference prevents mod_proxy from appending /bokning again.
+ProxyPassMatch "^(/bokning)$" "http://127.0.0.1:8010$1/"
 ProxyPreserveHost On
 ProxyPass /bokning/ http://127.0.0.1:8010/bokning/ timeout=120
 ProxyPassReverse /bokning/ http://127.0.0.1:8010/bokning/

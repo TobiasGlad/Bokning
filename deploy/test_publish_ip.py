@@ -1,4 +1,5 @@
 import unittest
+import re
 from publish_ip import apache_config, private_settings, inject_ip_routes
 
 
@@ -34,7 +35,18 @@ class IPDeploymentTests(unittest.TestCase):
 
     def test_no_trailing_slash_is_also_proxied(self):
         config = apache_config()
-        self.assertIn('ProxyPassMatch "^/bokning$" "http://127.0.0.1:8010/bokning/"', config)
+        rule = re.search(r'^ProxyPassMatch "([^"]+)" "([^"]+)"', config, re.M)
+        pattern, target = rule.groups()
+        match = re.search(pattern, '/bokning')
+        self.assertIsNotNone(match)
+        # Apache appends the complete original URI if the target has no
+        # backreference. That used to produce /bokning//bokning and a 404.
+        references = re.findall(r'\$(\d+)', target)
+        self.assertTrue(references, 'ProxyPassMatch must use an explicit backreference.')
+        for reference in references:
+            target = target.replace('$' + reference, match.group(int(reference)))
+        self.assertEqual(target, 'http://127.0.0.1:8010/bokning/')
+        self.assertIsNone(re.search(pattern, '/bokning-annat'))
 
     def test_existing_https_enables_secure_cookie_and_proxy_support(self):
         values = private_settings({'SECRET_KEY': 'unchanged'}, '192.0.2.10', https=True)

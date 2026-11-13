@@ -53,6 +53,10 @@ En kontroll enbart på loopback är otillräcklig eftersom Apache kan välja en
 annan VirtualHost där. Både `/bokning` och `/bokning/` kontrolleras. Befintliga projekt och
 konton bevaras. Inställningar och databas säkerhetskopieras privat innan
 ändringarna görs. Vid fel återställs tidigare inställningar och routning.
+För `/bokning` utan avslutande snedstreck används en uttrycklig återreferens
+i `ProxyPassMatch`. Utan återreferens lägger Apache till originaladressen
+på måladressen, vilket kan ge en dubblerad sökväg och 404. Se
+[Apaches dokumentation om Default Substitution](https://httpd.apache.org/docs/2.4/mod/mod_proxy.html#proxypassmatch).
 `--check` kontrollerar förutsättningarna utan att installera något.
 
 När IP-värden redan har HTTPS används `https://82.165.46.250/bokning/` med
