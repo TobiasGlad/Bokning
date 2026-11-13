@@ -89,8 +89,8 @@ bokning_step="förkontroll"
 "$bokning_python" deploy/publish_ip.py "$bokning_address" --check
 
 bokning_step="Apache, systemd och webbkontroll"
-printf '\nPublicerar Bokning på http://%s/bokning/ ...\n' "$bokning_address"
+printf '\nPublicerar Bokning under /bokning/ på %s ...\n' "$bokning_address"
 "$bokning_python" deploy/publish_ip.py "$bokning_address"
 
-printf '\nKLART: http://%s/bokning/\n' "$bokning_address"
+printf '\nKLART. Den verifierade adressen visas ovan (HTTPS används när IP-värden har det).\n'
 printf '%s\n' 'Befintliga konton och lösenord är bevarade.'

@@ -46,15 +46,20 @@ inte användarkonton. `bash /root/bokning/publicera.sh --check` gör en förkont
 
 Skriptet lägger till `/bokning/` i Apache, installerar Boknings systemd-tjänst,
 kopierar enbart publika statiska filer till `/var/www/bokning-static` och
-verifierar inloggningssidan och CSS genom Apache. Befintliga projekt och
+verifierar inloggningssidan och CSS via den riktiga IP-adressen. Om en befintlig
+IP-värd har en generell `ProxyPass /` läggs Boknings Include före den regeln i
+värdens HTTP- och HTTPS-block. Övriga applikationsregler och certifikat bevaras.
+En kontroll enbart på loopback är otillräcklig eftersom Apache kan välja en
+annan VirtualHost där. Både `/bokning` och `/bokning/` kontrolleras. Befintliga projekt och
 konton bevaras. Inställningar och databas säkerhetskopieras privat innan
 ändringarna görs. Vid fel återställs tidigare inställningar och routning.
 `--check` kontrollerar förutsättningarna utan att installera något.
 
-Adressen blir `http://82.165.46.250/bokning/`. HTTP-installationen är en
-testinstallation; trafiken är okrypterad. Installation som telefonapp och
-extern OAuth-inloggning behöver HTTPS. Skriptet aktiverar därför inte dessa
-funktioner eller gör anspråk på att HTTPS är klart.
+När IP-värden redan har HTTPS används `https://82.165.46.250/bokning/` med
+säkra kakor och betrodd proxyinformation. Certifikatet kontrolleras vid
+webbtestet. Skriptet utfärdar inget nytt certifikat. Utan befintlig HTTPS
+blir det en HTTP-testinstallation; trafiken är då okrypterad och installation
+som telefonapp samt extern OAuth-inloggning kräver fortsatt HTTPS.
 
 ### Drift med HTTPS
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish this existing installation on its host's IPv4 address (HTTP test use).
+"""Publish on the host's IPv4 address, reusing existing HTTPS when available.
 
 Run outside the restricted agent sandbox, as root. No account credentials are
 included, generated or reset. --check performs read-only preparation checks.
@@ -8,6 +8,7 @@ import argparse
 import ipaddress
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sqlite3
@@ -16,7 +17,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime, timezone
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, ProxyHandler
 from urllib.error import HTTPError, URLError
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +30,7 @@ PUBLIC_STATIC = Path('/var/www/bokning-static')
 
 def apache_config():
     return '''# Managed by /root/bokning/deploy/publish_ip.py
-# Global prefix route; existing VirtualHost definitions remain unchanged.
+# Included inside matching IP VirtualHosts before other app catch-all routes.
 RedirectMatch 301 ^/bokning$ /bokning/
 Alias /bokning/static/ /var/www/bokning-static/
 <Directory /var/www/bokning-static>
@@ -37,10 +38,57 @@ Alias /bokning/static/ /var/www/bokning-static/
     Options -Indexes
 </Directory>
 ProxyPass /bokning/static/ !
+ProxyPassMatch "^/bokning$" "http://127.0.0.1:8010/bokning/"
 ProxyPreserveHost On
 ProxyPass /bokning/ http://127.0.0.1:8010/bokning/ timeout=120
 ProxyPassReverse /bokning/ http://127.0.0.1:8010/bokning/
 '''
+
+
+def inject_ip_routes(config, address):
+    """Include the prefix rules INSIDE matching vhosts, before their catch-all.
+
+    Apache evaluates vhost ProxyPass rules before inherited global rules.
+    Preserve all existing TLS, ACME and other application configuration.
+    """
+    changed = 0
+    has_https = False
+    include = f'    Include "{AVAILABLE}"\n'
+    def replace(match):
+        nonlocal changed, has_https
+        block = match.group(0)
+        header = re.match(r'<VirtualHost\s+([^>]+)>', block, re.I)
+        addresses = header.group(1).split()
+        ports = [entry.rsplit(':', 1)[-1] for entry in addresses if entry.startswith(address + ':')]
+        if not ports:
+            return block
+        has_https = has_https or ('443' in ports and bool(re.search(r'^\s*SSLEngine\s+on\b', block, re.I | re.M)))
+        if include.strip() in block:
+            return block
+        changed += 1
+        return block[:header.end()] + '\n' + include + block[header.end():].lstrip('\n')
+    result = re.sub(r'<VirtualHost\s+[^>]+>.*?</VirtualHost\s*>', replace, config, flags=re.I | re.S)
+    return result, changed, has_https
+
+
+def virtualhost_plan(address):
+    edits = []
+    https = False
+    seen = set()
+    for folder in [Path('/etc/apache2/conf-enabled'), Path('/etc/apache2/sites-enabled')]:
+        for enabled in sorted(folder.glob('*.conf')):
+            target = enabled.resolve()
+            if target in seen or target == AVAILABLE:
+                continue
+            seen.add(target)
+            before = target.read_text()
+            after, count, tls = inject_ip_routes(before, address)
+            https = https or tls
+            if count:
+                if 'DO NOT MODIFY THIS FILE' in before:
+                    raise RuntimeError(f'IP-värden finns i en automatiskt genererad fil: {target}. Avbryter utan att skriva över den.')
+                edits.append((target, before.encode(), after.encode()))
+    return edits, https
 
 
 def atomic_write(path, content, mode=0o600):
@@ -71,12 +119,13 @@ def prerequisites():
     run(PYTHON, '-c', 'import django, gunicorn, PIL, requests, authlib, cryptography')
 
 
-def private_settings(settings, address):
+def private_settings(settings, address, https=False):
     values = dict(settings)
     hosts = [h.strip() for h in str(values.get('ALLOWED_HOSTS', '')).split(',') if h.strip() and h.strip() != '*']
-    values.update(PUBLIC_ORIGIN=f'http://{address}',
+    values.update(PUBLIC_ORIGIN=f'{"https" if https else "http"}://{address}',
         ALLOWED_HOSTS=','.join(dict.fromkeys([*hosts, address, 'localhost', '127.0.0.1'])),
-        SECURE_COOKIES='false', SSL_REDIRECT='false', HSTS_SECONDS=0, TRUST_PROXY_HTTPS='false', DEBUG='false')
+        SECURE_COOKIES='true' if https else 'false', SSL_REDIRECT='true' if https else 'false', HSTS_SECONDS=0,
+        TRUST_PROXY_HTTPS='true' if https else 'false', DEBUG='false')
     return values
 
 
@@ -86,10 +135,14 @@ def publish(address):
         raise RuntimeError('Kör installationskommandot som root på servern.')
     secret_path = ROOT / '.secrets/settings.json'
     old_settings = secret_path.read_bytes()
+    edits, https = virtualhost_plan(address)
+    origin = f'{"https" if https else "http"}://{address}'
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     backup = ROOT / 'private' / ('before-publish-' + stamp)
     backup.mkdir(mode=0o700)
     atomic_write(backup / 'settings.json', old_settings)
+    for index, (target, before, after) in enumerate(edits):
+        atomic_write(backup / f'apache-vhost-{index}.conf', before)
     database = ROOT / 'private/db.sqlite3'
     with sqlite3.connect(database) as source, sqlite3.connect(backup / 'db.sqlite3') as target:
         source.backup(target)
@@ -99,7 +152,7 @@ def publish(address):
     had_enabled = ENABLED.exists() or ENABLED.is_symlink()
     service_changed = False
     try:
-        values = private_settings(json.loads(old_settings), address)
+        values = private_settings(json.loads(old_settings), address, https=https)
         atomic_write(secret_path, json.dumps(values, indent=2).encode())
         run(PYTHON, 'manage.py', 'check')
         run(PYTHON, 'manage.py', 'migrate', '--noinput')
@@ -112,6 +165,8 @@ def publish(address):
             path.chmod(0o755 if path.is_dir() else 0o644)
         run('a2enmod', 'alias', 'proxy', 'proxy_http')
         atomic_write(AVAILABLE, apache_config().encode(), 0o644)
+        for target, before, after in edits:
+            atomic_write(target, after, target.stat().st_mode & 0o777)
         run('a2enconf', 'bokning-ip')
         run('apache2ctl', 'configtest')
         atomic_write(SERVICE, (ROOT / 'deploy/bokning.service').read_bytes(), 0o644)
@@ -122,32 +177,38 @@ def publish(address):
         run('systemctl', 'is-active', '--quiet', 'bokning.service')
         run('systemctl', 'reload', 'apache2')
         # Verify the actual proxy route, CSS, and denial of anonymous private data.
-        for path in ['/bokning/login/', '/bokning/static/bokning/app.css']:
-            request = Request('http://127.0.0.1' + path, headers={'Host': address})
+        opener = build_opener(ProxyHandler({}))
+        for path in ['/bokning', '/bokning/', '/bokning/login/', '/bokning/static/bokning/app.css']:
+            request = Request(origin + path)
             for attempt in range(10):
                 try:
-                    with urlopen(request, timeout=5) as response:
+                    with opener.open(request, timeout=5) as response:
                         if response.status != 200:
                             raise RuntimeError('Webbkontrollen misslyckades: ' + path)
+                        if path != '/bokning/static/bokning/app.css' and b'name="email"' not in response.read():
+                            raise RuntimeError('Adressen svarar med en annan sida än Boknings inloggning: ' + path)
                     break
                 except (URLError, OSError):
                     if attempt == 9:
                         raise RuntimeError('Webbkontrollen misslyckades: ' + path) from None
                     time.sleep(1)
         for path in ['/bokning/private/db.sqlite3', '/bokning/.secrets/settings.json']:
-            request = Request('http://127.0.0.1' + path, headers={'Host': address})
+            request = Request(origin + path)
             try:
-                with urlopen(request, timeout=5):
+                with opener.open(request, timeout=5):
                     raise RuntimeError('En privat sökväg svarade utan åtkomstskydd. Avbryter.')
             except HTTPError as exc:
                 if exc.code != 404:
                     raise RuntimeError('Privat sökväg svarade inte med förväntad 404.') from None
-        print(f'Publicerad och lokalt verifierad via Apache: http://{address}/bokning/')
-        print('HTTP-testinstallation: telefoninstallation och externa inloggningar behöver HTTPS.')
+        print(f'Publicerad och verifierad via IP-värdens Apache-konfiguration: {origin}/bokning/')
+        if not https:
+            print('HTTP-testinstallation: telefoninstallation och externa inloggningar behöver HTTPS.')
         print('Befintliga användare och lösenord har bevarats. Privat backup:', backup)
     except Exception:
         # Restore routing/settings and leave a consistent database backup for recovery.
         atomic_write(secret_path, old_settings)
+        for target, before, after in edits:
+            atomic_write(target, before, target.stat().st_mode & 0o777)
         if old_conf is None:
             AVAILABLE.unlink(missing_ok=True)
         else:
@@ -179,7 +240,10 @@ def main():
     try:
         if args.check:
             prerequisites()
-            print('Förutsättningar kontrollerade. Planerad adress: http://' + str(args.address) + '/bokning/')
+            edits, https = virtualhost_plan(str(args.address))
+            print('Förutsättningar kontrollerade. Planerad adress: ' + ('https' if https else 'http') + '://' + str(args.address) + '/bokning/')
+            for target, before, after in edits:
+                print('Bokning behöver läggas före befintlig ProxyPass i:', target)
             print('Ingen tjänst, webbroute, databas eller privat inställning har ändrats.')
         else:
             publish(str(args.address))
