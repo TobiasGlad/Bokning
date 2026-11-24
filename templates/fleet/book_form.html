@@ -1,0 +1,48 @@
+{% extends 'fleet/base.html' %}
+{% block title %}Ny bokning · Bokning{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><h1>Ny bokning</h1><p class="muted">Välj en resurs och tiden du behöver den.</p></div>
+  <a class="button outline" href="{% url 'calendar' %}">Öppna kalendern</a>
+</section>
+{% if has_resources %}
+<form class="generic-form booking-form" method="post" data-booking-form>
+  {% csrf_token %}
+  <section class="panel" aria-labelledby="booking-time">
+    <h2 id="booking-time">Resurs och tid</h2>
+    <p class="muted">Tider visas i lokal svensk tid.</p>
+    {{ timing_errors|default_if_none:'' }}
+    <div class="form-grid">
+      {% for field in timing_fields %}
+      <div class="form-field{% if forloop.first %} booking-resource{% endif %}">
+        {{ field.label_tag }}{{ field }}{{ field.errors }}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="booking-time-actions">
+      <button class="button outline" type="submit" name="check_time" value="1" formnovalidate>Kontrollera tillgänglighet</button>
+    </div>
+    {% if availability %}<p class="message success" role="status" data-availability>{{ availability }}</p>{% endif %}
+  </section>
+  <section class="panel" aria-labelledby="booking-details">
+    <h2 id="booking-details">Bokningsuppgifter</h2>
+    <div class="form-grid">
+      {% for field in detail_fields %}
+      <div class="form-field{% if forloop.last %} booking-resource{% endif %}">
+        {{ field.label_tag }}{{ field }}{{ field.errors }}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-actions">
+      <a class="button outline" href="{% url 'dashboard' %}">Tillbaka till resurser</a>
+      <button class="button primary" type="submit">Bekräfta bokning</button>
+    </div>
+  </section>
+</form>
+{% else %}
+<div class="panel">
+  <p>Det finns inga bokningsbara resurser just nu.</p>
+  {% if user.is_staff %}<a class="button primary" href="{% url 'resource_create' %}">Lägg till resurs</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

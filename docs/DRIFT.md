@@ -65,6 +65,27 @@ webbtestet. Skriptet utfärdar inget nytt certifikat. Utan befintlig HTTPS
 blir det en HTTP-testinstallation; trafiken är då okrypterad och installation
 som telefonapp samt extern OAuth-inloggning kräver fortsatt HTTPS.
 
+### bokning.norrsinne.se i Plesk
+
+1. Skapa subdomänen i Plesk och peka dess DNS-post mot Plesk-servern. Aktivera
+   ett giltigt TLS-certifikat för `bokning.norrsinne.se` och omdirigering från
+   HTTP till HTTPS i Plesk.
+2. Lägg in innehållet från [nginx-bokning.conf](../deploy/nginx-bokning.conf)
+   under subdomänens **Ytterligare nginx-direktiv**. Rotadressen leder till
+   `/bokning/`. Lämna projektkatalogen utanför webbserverns dokumentrot.
+3. Uppdatera den befintliga privata serverkonfigurationen. Lägg till
+   `bokning.norrsinne.se` i `ALLOWED_HOSTS` och sätt
+   `PUBLIC_ORIGIN=https://bokning.norrsinne.se`. Använd `SECURE_COOKIES=true`,
+   `SSL_REDIRECT=true` och `TRUST_PROXY_HTTPS=true` med den här proxyn.
+4. Säkerhetskopiera databasen och kör `migrate` och `collectstatic` från
+   projektets virtuella miljö. Kopiera innehållet i `staticfiles/` till
+   `/var/www/bokning-static/`. Ladda om Plesk-konfigurationen och starta om den
+   befintliga systemd-tjänsten `bokning.service`.
+5. Kontrollera rotadressen, inloggningen och
+   `https://bokning.norrsinne.se/bokning/static/bokning/app.css` över HTTPS.
+   Följ [Microsoft-konfigurationen](KALENDRAR.md#microsoft-365) för SSO och
+   verifiera ett arbetskonto från Entra.
+
 ### Drift med HTTPS
 
 ```sh

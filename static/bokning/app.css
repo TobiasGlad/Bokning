@@ -33,3 +33,9 @@
 .booking-row .date-tile,.upcoming-row .date-tile{border-color:var(--resource-color,#c7e0f4);color:var(--resource-ink,#005a9e);background:var(--resource-soft,#eff6fc)}
 .vehicle-title h3 .resource-color-dot{width:8px;height:8px;margin-right:7px}
 .page-heading h1 .resource-color-dot{width:12px;height:12px;margin-right:10px}
+
+.booking-form .booking-resource { grid-column: 1 / -1; }
+.booking-time-actions { margin: 1rem 0; }
+.admin-search { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.admin-search label { flex: 1 1 14rem; }
+.admin-status { margin-top: .35rem; }

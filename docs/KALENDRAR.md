@@ -2,16 +2,26 @@
 
 ## Microsoft 365
 
-Registrera en webbapp i Microsoft Entra. Använd en specifik organisations-tenant;
-appen är avsedd för en organisation. Ange tenant-ID, klient-ID och klienthemlighet
-i serverns privata inställningar (`MICROSOFT_TENANT`, `MICROSOFT_CLIENT_ID`,
-`MICROSOFT_CLIENT_SECRET`). Använd inte `common`, `organizations` eller `consumers`.
+Registrera en webbapp i Microsoft Entra för konton i organisationens egen
+katalog. Ange katalogens tenant-ID (GUID), klient-ID och klienthemlighet i
+serverns privata inställningar (`MICROSOFT_TENANT`, `MICROSOFT_CLIENT_ID`,
+`MICROSOFT_CLIENT_SECRET`). Starta om applikationen efter ändringen.
 
-Registrera exakt returadress:
+Lägg till följande returadress på plattformen **Webb** för
+`bokning.norrsinne.se`:
 
 ```text
-https://er-domän.se/bokning/oauth/microsoft/callback/
+https://bokning.norrsinne.se/bokning/oauth/microsoft/callback/
 ```
+
+För att låta Entra-användare få ett Bokning-konto vid första inloggningen,
+skapa approllen `Bokning.User` för användare och grupper och tilldela rollen
+under **Företagsprogram → Användare och grupper**. De får vanliga
+användarkonton. Hantera administratörsbehörighet i Bokning. Befintliga
+användare loggar först in med lösenord och kopplar arbetskontot under **Mitt
+konto**. Identiteten knyts till Microsofts utfärdare och användaridentifierare.
+`SSO_ALLOWED_DOMAINS` används för Googles kontoetablering.
+[Microsofts guide för approller](https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-app-roles-in-apps)
 
 Inloggning begär `openid email profile`. Kalenderanslutning begär dessutom
 `offline_access`, `User.Read`, `Calendars.ReadWrite`, `Calendars.ReadWrite.Shared`

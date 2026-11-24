@@ -7,8 +7,8 @@
   <title>{% block title %}Bokning · Bilpool{% endblock %}</title>
   <link rel="manifest" href="{% url 'manifest' %}"><link rel="icon" href="{% static 'bokning/icon.svg' %}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{% static 'bokning/icon-192.png' %}">
-  <link rel="stylesheet" href="{% static 'bokning/app.css' %}?v=resource-colors-1">
-  <script src="{% static 'bokning/app.js' %}?v=resource-colors-1" defer></script>
+  <link rel="stylesheet" href="{% static 'bokning/app.css' %}?v=booking-workflow-1">
+  <script src="{% static 'bokning/app.js' %}?v=booking-workflow-1" defer></script>
 </head>
 <body class="{% if user.is_authenticated %}signed-in{% endif %}">
 <a class="skip-link" href="#main-content">Hoppa till innehåll</a>
@@ -35,14 +35,14 @@
   <a class="button primary sidebar-book" href="{% url 'book' %}">＋ Ny bokning</a>
   <p class="nav-label">BOKNING</p>
   <nav aria-label="Huvudmeny">
-    <a class="{% if page_name == 'dashboard' or page_name == 'resource' or page_name == 'resource_edit' or page_name == 'resource_create' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-grid"/></svg>Alla resurser</a>
+    <a class="{% if page_name == 'dashboard' or page_name == 'resource' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-grid"/></svg>Alla resurser</a>
     <a class="{% if page_name == 'calendar' %}active{% endif %}" href="{% url 'calendar' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-calendar"/></svg>Kalender</a>
     <a class="{% if page_name == 'bookings' or page_name == 'booking' %}active{% endif %}" href="{% url 'bookings' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-list"/></svg>Mina bokningar</a>
     {% if user.is_staff %}<p class="nav-label">ADMINISTRATION</p>
-    <a class="{% if page_name == 'manage' %}active{% endif %}" href="{% url 'manage' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-settings"/></svg>Resurser & drift</a>
+    <a class="{% if page_name == 'manage' or page_name == 'resource_edit' or page_name == 'resource_create' or page_name == 'maintenance_create' %}active{% endif %}" href="{% url 'manage' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-settings"/></svg>Resurser & drift</a>
     <a class="{% if page_name == 'units' or page_name == 'unit_create' or page_name == 'unit_edit' %}active{% endif %}" href="{% url 'units' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-list"/></svg>Enheter</a>
     <a class="{% if page_name == 'users' or page_name == 'user_create' %}active{% endif %}" href="{% url 'users' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-people"/></svg>Användare</a>
-    <a class="{% if page_name == 'integrations' or page_name == 'discover' %}active{% endif %}" href="{% url 'integrations' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-link"/></svg>Integrationer</a>{% endif %}
+    <a class="{% if page_name == 'integrations' or page_name == 'discover' %}active{% endif %}" href="{% url 'integrations' %}"><svg class="ui-icon" aria-hidden="true"><use href="#i-link"/></svg>Inloggning & kalendrar</a>{% endif %}
   </nav>
   <div class="sidebar-bottom"><button class="install-link" data-install hidden>Installera Bokning ↗</button><a class="account" href="{% url 'profile' %}"><span class="avatar">{{ user.first_name|first|default:'M'|upper }}</span><div>{{ user.get_full_name|default:user.email }}<small>{% if user.is_staff %}Administratör{% else %}Medarbetare{% endif %}</small></div></a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="logout">Logga ut</button></form></div>
 </aside>

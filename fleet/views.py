@@ -20,8 +20,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from .models import Resource, Booking, Maintenance, Issue, CalendarConnection, Audit, LoginAttempt, Unit
-from .forms import ResourceForm, BookingForm, UserForm, IssueForm, MaintenanceForm, ReturnForm, UnitForm
-from .services import create_booking, cancel_booking, return_booking, create_maintenance, sync_booking
+from .forms import ResourceForm, BookingForm, BookingSlotForm, UserForm, IssueForm, MaintenanceForm, ReturnForm, UnitForm
+from .services import create_booking, cancel_booking, return_booking, create_maintenance, sync_booking, validate_slot
 from .calendars import CalendarClient, CalendarError
 
 
@@ -89,9 +89,8 @@ def dashboard(request):
     if fuel:
         resources = resources.filter(fuel=fuel)
     start_raw, end_raw = request.GET.get('start', ''), request.GET.get('end', '')
-    slot_form = BookingForm({'start': start_raw, 'end': end_raw, 'purpose': 'Sök', 'resource': resources.first().pk if resources.exists() else ''})
-    searching_time = bool(start_raw and end_raw)
-    available_ids = None
+    slot_form = BookingSlotForm({'start': start_raw, 'end': end_raw})
+    searching_time = bool(start_raw or end_raw)
     slot_start, slot_end = None, None
     if searching_time:
         slot_form.is_valid()
@@ -108,7 +107,6 @@ def dashboard(request):
         availability = 'Ledig nu' if not current and not service else ('Service' if service else 'Bokad nu')
         available = not current and not service
         if searching_time:
-            from .services import validate_slot
             try:
                 validate_slot(resource, slot_start, slot_end)
                 if resource.connection_id and CalendarClient(resource.connection).busy(resource, slot_start - margin, slot_end + margin):
@@ -171,9 +169,10 @@ def resource_edit(request, pk=None):
             if not form.errors:
                 Audit.objects.create(actor=request.user, action='resource.saved', description=f'Resurs {item.pk} sparad')
                 messages.success(request, 'Resursen är sparad.')
-                return redirect('resource', pk=item.pk)
+                return redirect('manage')
     return render(request, 'fleet/form.html', {'form': form, 'title': 'Redigera resurs' if pk else 'Lägg till resurs',
-                  'eyebrow': 'FORDON & RESURSER', 'submit': 'Spara resurs', 'multipart': True})
+                  'eyebrow': 'FORDON & RESURSER', 'submit': 'Spara resurs', 'multipart': True,
+                  'back_url': reverse('manage')})
 
 
 @login_required
@@ -183,8 +182,28 @@ def book(request):
         initial['resource'] = request.GET['resource']
     now = timezone.localtime().replace(second=0, microsecond=0) + timedelta(hours=1)
     initial.update(start=request.GET.get('start') or now, end=request.GET.get('end') or now + timedelta(hours=2))
-    form = BookingForm(request.POST or None, initial=initial)
-    if request.method == 'POST' and form.is_valid():
+    availability = ''
+    checking = request.method == 'POST' and 'check_time' in request.POST
+    if checking:
+        form = BookingForm(initial=request.POST)
+        timing = BookingSlotForm(request.POST)
+        if timing.is_valid():
+            resource, start, end = (timing.cleaned_data[field] for field in ('resource', 'start', 'end'))
+            try:
+                validate_slot(resource, start, end)
+                margin = timedelta(minutes=resource.buffer_minutes)
+                if resource.connection_id and CalendarClient(resource.connection).busy(resource, start - margin, end + margin):
+                    raise ValidationError('Resursens kalender är upptagen under den valda tiden.')
+            except ValidationError as exc:
+                timing.add_error(None, exc)
+            except CalendarError:
+                timing.add_error(None, 'Kalendern kunde inte kontrolleras just nu. Försök igen.')
+            else:
+                availability = 'Resursen är ledig den valda tiden. Bekräfta bokningen för att reservera den.'
+    else:
+        form = BookingForm(request.POST if request.method == 'POST' else None, initial=initial)
+        timing = form
+    if request.method == 'POST' and not checking and form.is_valid():
         try:
             booking = create_booking(user=request.user, **form.cleaned_data)
             if booking.status == 'confirmed':
@@ -196,8 +215,12 @@ def book(request):
             return redirect('booking', pk=booking.pk)
         except ValidationError as exc:
             form.add_error(None, exc)
-    return render(request, 'fleet/form.html', {'form': form, 'title': 'Boka en resurs', 'eyebrow': 'EN RESA I TAGET',
-        'intro': 'Samma resurs kan bokas flera gånger per dag. Välj ett ledigt tidsintervall; redan bokade tider visas i kalendern.', 'submit': 'Bekräfta bokning'})
+    return render(request, 'fleet/book_form.html', {
+        'timing_fields': [timing[name] for name in BookingSlotForm.base_fields],
+        'timing_errors': timing.non_field_errors(), 'availability': availability,
+        'has_resources': form.fields['resource'].queryset.exists(),
+        'detail_fields': [form[name] for name in ('purpose', 'unit', 'notes')],
+    })
 
 
 @login_required
@@ -254,6 +277,8 @@ def booking_action(request, pk, action):
             raise Http404
     except (ValidationError, CalendarError) as exc:
         errors(request, exc)
+    if action == 'retry' and request.user.is_staff and request.POST.get('from_manage') == '1':
+        return redirect('manage')
     return redirect('booking', pk=pk)
 
 
@@ -311,11 +336,21 @@ def calendar_view(request):
 
 @staff_required
 def manage(request):
-    return render(request, 'fleet/manage.html', {'resources': Resource.objects.all(),
+    now = timezone.now()
+    query = request.GET.get('q', '').strip()
+    resources = Resource.objects.all()
+    if query:
+        resources = resources.filter(Q(name__icontains=query) | Q(registration__icontains=query) |
+                                     Q(location__icontains=query))
+    return render(request, 'fleet/manage.html', {
+        'resources': resources, 'resource_query': query,
         'issues': Issue.objects.filter(resolved=False).select_related('resource', 'user'),
-        'maintenance': Maintenance.objects.filter(end__gte=timezone.now()).select_related('resource'),
+        'maintenance': Maintenance.objects.filter(end__gte=now).select_related('resource'),
         'audit': Audit.objects.select_related('actor')[:20],
-        'pending': Booking.objects.filter(status__in=['syncing', 'cancel_pending']).select_related('resource', 'user')})
+        'pending': Booking.objects.filter(status__in=['syncing', 'cancel_pending']).select_related('resource'),
+        'overdue': Booking.objects.filter(status='confirmed', end__lt=now,
+                                          resource__kind__in=['car', 'van']).select_related('resource', 'user').order_by('end'),
+    })
 
 
 @staff_required
@@ -329,7 +364,8 @@ def maintenance_create(request):
         except ValidationError as exc:
             form.add_error(None, exc)
     return render(request, 'fleet/form.html', {'form': form, 'title': 'Blockera för service', 'eyebrow': 'UNDERHÅLL',
-        'intro': 'Serviceblockeringar hindrar bokningar här. Lägg även in service i den externa kalendern om bilen kan bokas där.', 'submit': 'Blockera tiden'})
+        'intro': 'Serviceblockeringar hindrar bokningar här. Lägg även in service i den externa kalendern om bilen kan bokas där.', 'submit': 'Blockera tiden',
+        'back_url': reverse('manage')})
 
 
 @staff_required
@@ -418,7 +454,10 @@ def profile(request):
 
 @staff_required
 def integrations(request):
-    return render(request, 'fleet/integrations.html', {'connections': CalendarConnection.objects.all()})
+    return render(request, 'fleet/integrations.html', {
+        'connections': CalendarConnection.objects.all(),
+        'microsoft_callback': settings.PUBLIC_ORIGIN + reverse('oauth_callback', args=['microsoft']),
+    })
 
 
 @staff_required

@@ -27,13 +27,23 @@
     button.textContent = show ? 'Dölj' : 'Visa';
     button.setAttribute('aria-label', show ? 'Dölj lösenord' : 'Visa lösenord');
   }));
+  const bookingForm = document.querySelector('[data-booking-form]');
+  const availability = bookingForm?.querySelector('[data-availability]');
+  if (availability) {
+    bookingForm.addEventListener('input', event => {
+      if (['resource', 'start', 'end'].includes(event.target.name)) availability.hidden = true;
+    });
+  }
   document.querySelectorAll('form[data-confirm]').forEach(form => form.addEventListener('submit', event => {
     if (!window.confirm(form.dataset.confirm)) event.preventDefault();
   }));
   document.querySelectorAll('form').forEach(form => form.addEventListener('submit', event => {
     if (!event.defaultPrevented && form.method.toLowerCase() === 'post') {
       const button = event.submitter;
-      if (button) { button.disabled = true; button.classList.add('submitting'); }
+      if (button) {
+        button.classList.add('submitting');
+        if (!button.name) button.disabled = true;
+      }
     }
   }));
   let installPrompt;

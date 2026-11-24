@@ -1,5 +1,6 @@
 import io
 import tempfile
+import time
 from datetime import timedelta
 from unittest.mock import patch, Mock
 from PIL import Image
@@ -234,7 +235,6 @@ class ViewsAndSecurity(TestCase):
     @patch('fleet.oauth.client')
     def test_sso_never_auto_links_existing_email(self, remote):
         session=self.client.session
-        import time
         session['oauth_intent_test']={'provider':'google','mode':'login','user':None,'time':time.time()}
         session.save()
         remote.return_value.authorize_access_token.return_value={'userinfo':{'sub':'attacker','iss':'https://accounts.google.com',
@@ -246,7 +246,6 @@ class ViewsAndSecurity(TestCase):
     @override_settings(GOOGLE_CLIENT_ID='test', GOOGLE_CLIENT_SECRET='test', SSO_ALLOWED_DOMAINS=['example.invalid'])
     @patch('fleet.oauth.client')
     def test_sso_new_user_and_explicit_link(self, remote):
-        import time
         session=self.client.session
         session['oauth_intent_test']={'provider':'google','mode':'login','user':None,'time':time.time()};session.save()
         remote.return_value.authorize_access_token.return_value={'userinfo':{'sub':'new','iss':'https://accounts.google.com',
@@ -254,6 +253,80 @@ class ViewsAndSecurity(TestCase):
         self.client.get('/bokning/oauth/google/callback/?state=test&code=valid')
         self.assertIn('_auth_user_id',self.client.session)
         self.assertFalse(get_user_model().objects.get(email='new@example.invalid').is_staff)
+
+    def test_check_availability_preserves_details_without_creating_booking(self):
+        self.client.force_login(self.admin)
+        start = timezone.localtime(self.item.end).replace(second=0, microsecond=0) + timedelta(minutes=1)
+        data = {
+            'check_time': '1',
+            'resource': self.resource.pk,
+            'start': start.strftime('%Y-%m-%dT%H:%M'),
+            'end': (start + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),
+            'purpose': 'Sparad destination',
+        }
+        response = self.client.post(reverse('book'), data)
+        self.assertContains(response, 'Resursen är ledig den valda tiden')
+        self.assertContains(response, 'value="Sparad destination"')
+        self.assertEqual(Booking.objects.count(), 1)
+
+        data['start'] = timezone.localtime(self.item.start).strftime('%Y-%m-%dT%H:%M')
+        response = self.client.post(reverse('book'), data)
+        self.assertContains(response, 'Tiden är redan bokad')
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_admin_can_find_and_close_overdue_vehicle_returns(self):
+        Booking.objects.filter(pk=self.item.pk).update(
+            start=timezone.now() - timedelta(hours=2), end=timezone.now() - timedelta(hours=1))
+        Resource.objects.create(name='Minibuss', kind='van')
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('manage'), {'q': 'ABC123'})
+        self.assertEqual(list(response.context['resources']), [self.resource])
+        self.assertEqual(list(response.context['overdue']), [self.item])
+        self.client.post(reverse('booking_action', args=[self.item.pk, 'return']), {'mileage': 1})
+        response = self.client.get(reverse('manage'))
+        self.assertContains(response, 'Inga sena återlämningar.')
+
+    @override_settings(
+        MICROSOFT_TENANT='01234567-89ab-4def-8123-456789abcdef',
+        MICROSOFT_CLIENT_ID='test',
+        MICROSOFT_CLIENT_SECRET='test',
+        PUBLIC_ORIGIN='https://bokning.example.invalid',
+    )
+    @patch('fleet.oauth.client')
+    def test_microsoft_sso_redirect_and_tenant_role_checks(self, remote):
+        tenant = '01234567-89ab-4def-8123-456789abcdef'
+        issuer = f'https://login.microsoftonline.com/{tenant}/v2.0'
+        start_url = reverse('oauth_start', args=['microsoft'])
+        callback_url = reverse('oauth_callback', args=['microsoft'])
+        self.assertContains(self.client.get(reverse('login')), 'Logga in med Microsoft')
+        remote.return_value.authorize_redirect.return_value = self.client.get(reverse('login'))
+        self.client.post(start_url)
+        args, kwargs = remote.return_value.authorize_redirect.call_args
+        self.assertEqual(args[1], 'https://bokning.example.invalid' + callback_url)
+        self.assertTrue(kwargs['nonce'])
+        self.assertNotIn('scope', kwargs)
+
+        base_claims = {'iss': issuer, 'tid': tenant, 'sub': 'new-ms', 'email': 'new@example.invalid'}
+        for state, claims, accepted in (
+            ('wrong-tenant', {**base_claims, 'tid': 'other', 'roles': ['Bokning.User']}, False),
+            ('no-role', base_claims, False),
+            ('existing-email', {**base_claims, 'email': self.admin.email, 'roles': ['Bokning.User']}, False),
+            ('assigned', {**base_claims, 'roles': ['Bokning.User']}, True),
+        ):
+            with self.subTest(state=state):
+                session = self.client.session
+                session['oauth_intent_' + state] = {
+                    'provider': 'microsoft', 'mode': 'login', 'user': None, 'time': time.time(),
+                }
+                session.save()
+                remote.return_value.authorize_access_token.return_value = {'userinfo': claims}
+                self.client.get(callback_url, {'state': state, 'code': 'valid'})
+                self.assertEqual('_auth_user_id' in self.client.session, accepted)
+
+        account = get_user_model().objects.get(email='new@example.invalid')
+        self.assertFalse(account.is_staff)
+        self.assertFalse(account.has_usable_password())
+        self.assertTrue(Identity.objects.filter(user=account, provider='microsoft', issuer=issuer).exists())
 
     def test_photo_reencoding_and_protection(self):
         image=Image.new('RGB',(40,20),'green');content=io.BytesIO();image.save(content,'PNG')

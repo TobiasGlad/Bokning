@@ -19,9 +19,13 @@ med mätarställning, felanmälningar, administrationslogg och CSV-export.
 Mobilgränssnittet och PWA-installationen gör att samma app används på dator,
 iPhone och Android. En separat App Store- eller Google Play-app ingår inte.
 
+När en bekräftad fordonsbokning har passerat sluttiden utan registrerad
+återlämning visas den under Sena återlämningar i Resurser & drift. Därifrån kan
+administratören öppna bokningen och registrera återlämningen.
+
 ## Fortsatt utveckling
 
-- E-postpåminnelser och sena återlämningar, efter konfiguration av utskickstjänst.
+- E-postpåminnelser, inklusive påminnelser om sena återlämningar, efter konfiguration av utskickstjänst.
 - Automatisk extern ändringssynk med webhooks och konfliktöversikt.
 - Återkommande bokningsserier med konfliktkontroll för varje tillfälle.
 - Bokningskvoter, kostnadsställen och mer detaljerad beläggningsstatistik.

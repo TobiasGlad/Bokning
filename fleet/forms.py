@@ -35,14 +35,18 @@ class ResourceForm(forms.ModelForm):
             raise forms.ValidationError('Välj en giltig bild (JPEG, PNG eller WebP).') from exc
 
 
-class BookingForm(forms.Form):
-    resource = forms.ModelChoiceField(label='Resurs', queryset=Resource.objects.filter(active=True))
-    unit = forms.ModelChoiceField(label='Enhet', queryset=Unit.objects.filter(active=True), required=False,
-                                  empty_label='Välj enhet (valfritt)')
-    start = forms.DateTimeField(label='Från', input_formats=['%Y-%m-%dT%H:%M'], widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}))
-    end = forms.DateTimeField(label='Till', input_formats=['%Y-%m-%dT%H:%M'], widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}))
-    purpose = forms.CharField(label='Ändamål / destination', max_length=240)
-    notes = forms.CharField(label='Anteckning', required=False, widget=forms.Textarea(attrs={'rows': 2}))
+class BookingSlotForm(forms.Form):
+    resource = forms.ModelChoiceField(label='Resurs', queryset=Resource.objects.filter(active=True),
+                                      empty_label='Välj en resurs')
+    start = forms.DateTimeField(label='Start', input_formats=['%Y-%m-%dT%H:%M'], widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}))
+    end = forms.DateTimeField(label='Slut', input_formats=['%Y-%m-%dT%H:%M'], widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}))
+
+
+class BookingForm(BookingSlotForm):
+    purpose = forms.CharField(label='Ändamål eller destination', max_length=240)
+    unit = forms.ModelChoiceField(label='Enhet (valfritt)', queryset=Unit.objects.filter(active=True), required=False,
+                                  empty_label='Välj enhet')
+    notes = forms.CharField(label='Anteckning (valfritt)', required=False, widget=forms.Textarea(attrs={'rows': 2}))
 
 
 class UnitForm(forms.ModelForm):

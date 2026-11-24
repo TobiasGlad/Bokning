@@ -1,6 +1,6 @@
 import secrets
 import time
-from urllib.parse import quote
+from uuid import UUID
 from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from django.contrib import messages
@@ -16,14 +16,28 @@ from .calendars import encrypt_token
 from .models import Identity, CalendarConnection, Audit
 
 
+def microsoft_tenant_id():
+    try:
+        tenant = UUID(settings.MICROSOFT_TENANT.strip())
+    except ValueError:
+        return None
+    if not tenant.int or str(tenant) == '9188040d-6c67-4c5b-b112-36a304b66dad':
+        return None
+    return str(tenant)
+
+
+def microsoft_ready():
+    return bool(settings.MICROSOFT_CLIENT_ID and settings.MICROSOFT_CLIENT_SECRET and microsoft_tenant_id())
+
+
 def client(provider):
     oauth = OAuth()
     if provider == 'google' and settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET:
         return oauth.register('google', client_id=settings.GOOGLE_CLIENT_ID, client_secret=settings.GOOGLE_CLIENT_SECRET,
             server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
             client_kwargs={'scope': 'openid email profile', 'code_challenge_method': 'S256', 'timeout': 20})
-    if provider == 'microsoft' and settings.MICROSOFT_CLIENT_ID and settings.MICROSOFT_CLIENT_SECRET and settings.MICROSOFT_TENANT:
-        tenant = quote(settings.MICROSOFT_TENANT, safe='')
+    if provider == 'microsoft' and microsoft_ready():
+        tenant = microsoft_tenant_id()
         return oauth.register('microsoft', client_id=settings.MICROSOFT_CLIENT_ID, client_secret=settings.MICROSOFT_CLIENT_SECRET,
             server_metadata_url=f'https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration',
             client_kwargs={'scope': 'openid email profile', 'code_challenge_method': 'S256', 'timeout': 20})
@@ -81,9 +95,13 @@ def callback(request, provider):
             raise ValidationError('Identiteten kunde inte verifieras.')
         if provider == 'google' and not info.get('email_verified'):
             raise ValidationError('E-postadressen måste vara verifierad hos Google.')
-        email = (info.get('email') or info.get('preferred_username') or '').strip().lower()
-        validate_email(email)
+        if provider == 'microsoft':
+            tenant = microsoft_tenant_id()
+            if not tenant or info.get('tid') != tenant or info['iss'] != f'https://login.microsoftonline.com/{tenant}/v2.0':
+                raise ValidationError('Microsoft-kontot tillhör inte den konfigurerade organisationen.')
         if intent['mode'] == 'calendar':
+            email = (info.get('email') or info.get('preferred_username') or '').strip().lower()
+            validate_email(email)
             name = f'{"Google" if provider == "google" else "Microsoft"} · {email}'
             # Reauthorization repairs existing resource links instead of orphaning them.
             connection = CalendarConnection.objects.filter(provider=provider, name=name, owner=request.user).first()
@@ -108,10 +126,16 @@ def callback(request, provider):
             if identity:
                 user = identity.user
             else:
+                email = (info.get('email') or info.get('preferred_username') or '').strip().lower()
+                validate_email(email)
                 if get_user_model().objects.filter(email__iexact=email).exists():
                     raise ValidationError('Ett konto finns redan. Logga in med lösenord och koppla inloggningen under Mitt konto.')
                 domain = email.rsplit('@', 1)[-1]
-                if not settings.SSO_ALLOWED_DOMAINS or domain not in settings.SSO_ALLOWED_DOMAINS:
+                if provider == 'microsoft':
+                    roles = info.get('roles')
+                    if not isinstance(roles, list) or 'Bokning.User' not in roles:
+                        raise ValidationError('Kontot saknar rollen Bokning.User i Microsoft Entra.')
+                elif domain not in settings.SSO_ALLOWED_DOMAINS:
                     raise ValidationError('Kontot har inte bjudits in. Kontakta administratören.')
                 user = get_user_model().objects.create_user(username=email, email=email,
                     first_name=info.get('given_name', ''), last_name=info.get('family_name', ''), password=None)
